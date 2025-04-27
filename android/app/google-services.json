@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "1033976482875",
+    "project_id": "talk2melatest",
+    "storage_bucket": "talk2melatest.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1033976482875:android:332105d7a3062e1df2201e",
+        "android_client_info": {
+          "package_name": "com.example.talk_to_me"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "1033976482875-jr0hgr6id78qb1qqkmp9p16pgle83jum.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.talk_to_me",
+            "certificate_hash": "30954730d9017d693f6271a77a252f800c221bea"
+          }
+        },
+        {
+          "client_id": "1033976482875-ibla6f7v85ico326m8375avppvrt5g24.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDpCLXWc-kU2m-dEEQMMFwyRNPyWzI_3Ig"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1033976482875-fl6nms4rudvsier5ot8s27c1nj419hts.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
