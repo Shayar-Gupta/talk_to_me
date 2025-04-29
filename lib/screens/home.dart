@@ -1,6 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:talk_to_me/screens/chat_screen.dart';
 import 'package:talk_to_me/services/database.dart';
 import 'package:talk_to_me/services/shared_pref.dart';
@@ -14,11 +13,39 @@ class Home extends StatefulWidget {
 
 class _HomeState extends State<Home> {
   String? myUsername, myName, myEmail, myPicture;
+  Stream? chatRoomsStream;
   TextEditingController searchController = new TextEditingController();
   bool search = false;
 
   var queryResultSet = [];
   var tempSearchStore = [];
+
+  Widget chatRoomList() {
+    return StreamBuilder(
+        stream: chatRoomsStream,
+        builder: (context, AsyncSnapshot snapshot) {
+          return snapshot.hasData
+              ? ListView.builder(
+                  padding: EdgeInsets.zero,
+                  itemCount: snapshot.data.docs.length,
+                  shrinkWrap: true,
+                  itemBuilder: (context, index) {
+                    DocumentSnapshot ds = snapshot.data.docs[index];
+                    return ChatRoomListTile(
+                        chatRoomId: ds.id,
+                        lastMessage: ds["lastMessage"],
+                        myUsername: myUsername!,
+                        time: ds["lastMessageSendTs"]);
+                  })
+              : Container();
+        });
+  }
+
+  ontheload() async {
+    await getSharedPref();
+    chatRoomsStream = await DatabaseMethods().getChatRooms();
+    setState(() {});
+  }
 
   getSharedPref() async {
     myUsername = await SharedpreferenceHelper().getUserName();
@@ -31,7 +58,7 @@ class _HomeState extends State<Home> {
 
   @override
   void initState() {
-    getSharedPref();
+    ontheload();
     super.initState();
   }
 
@@ -96,7 +123,7 @@ class _HomeState extends State<Home> {
                   ),
                   SizedBox(width: 10.0),
                   Text(
-                    "Hello",
+                    "Hello, ",
                     textAlign: TextAlign.center,
                     style: TextStyle(
                         color: Colors.white,
@@ -105,7 +132,7 @@ class _HomeState extends State<Home> {
                   ),
                   SizedBox(width: 10.0),
                   Text(
-                    "Sandeep",
+                    myName!,
                     textAlign: TextAlign.center,
                     style: TextStyle(
                         color: Colors.white,
@@ -197,69 +224,7 @@ class _HomeState extends State<Home> {
                             children: tempSearchStore.map((element) {
                               return buildResultCard(element);
                             }).toList())
-                        : Material(
-                            elevation: 4.0,
-                            child: Container(
-                              padding: EdgeInsets.all(10.0),
-                              width: MediaQuery.of(context).size.width,
-                              decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(10)),
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  ClipRRect(
-                                    borderRadius: BorderRadius.circular(60),
-                                    child: Image.asset(
-                                      "assets/boy.jpg",
-                                      height: 70.0,
-                                      width: 70.0,
-                                      fit: BoxFit.cover,
-                                    ),
-                                  ),
-                                  SizedBox(
-                                    width: 10.0,
-                                  ),
-                                  Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      SizedBox(
-                                        height: 10.0,
-                                      ),
-                                      Text(
-                                        "Sandeep Gupta",
-                                        textAlign: TextAlign.center,
-                                        style: TextStyle(
-                                            color: Colors.black,
-                                            fontSize: 20.0,
-                                            fontWeight: FontWeight.w500),
-                                      ),
-                                      Text(
-                                        "Hello, how are you doing",
-                                        textAlign: TextAlign.center,
-                                        style: TextStyle(
-                                            color: const Color.fromARGB(
-                                                152, 0, 0, 0),
-                                            fontSize: 16.0,
-                                            fontWeight: FontWeight.w500),
-                                      ),
-                                    ],
-                                  ),
-                                  Spacer(),
-                                  Text(
-                                    "02:00 PM",
-                                    textAlign: TextAlign.center,
-                                    style: TextStyle(
-                                        color: Colors.black,
-                                        fontSize: 12.0,
-                                        fontWeight: FontWeight.w500),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
+                        : chatRoomList()
                   ],
                 ),
               ),
@@ -340,6 +305,118 @@ class _HomeState extends State<Home> {
                 )
               ],
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class ChatRoomListTile extends StatefulWidget {
+  String lastMessage, chatRoomId, myUsername, time;
+  ChatRoomListTile(
+      {required this.chatRoomId,
+      required this.lastMessage,
+      required this.myUsername,
+      required this.time});
+
+  @override
+  State<ChatRoomListTile> createState() => _ChatRoomListTileState();
+}
+
+class _ChatRoomListTileState extends State<ChatRoomListTile> {
+  String profilePicUrl = "", name = "", username = "", id = "";
+
+  getThisUserInfo() async {
+    username =
+        widget.chatRoomId.replaceAll("_", "").replaceAll(widget.myUsername, "");
+    QuerySnapshot querySnapshot = await DatabaseMethods().getUserInfo(username);
+
+    name = "${querySnapshot.docs[0]["Name"]}";
+    profilePicUrl = "${querySnapshot.docs[0]["Image"]}";
+    username = "${querySnapshot.docs[0]["username"]}";
+    id = "${querySnapshot.docs[0]["id"]}";
+
+    setState(() {});
+  }
+
+  @override
+  void initState() {
+    getThisUserInfo();
+    super.initState();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+            context,
+            MaterialPageRoute(
+                builder: (context) => ChatScreen(
+                    name: name,
+                    profileURL: profilePicUrl,
+                    username: username)));
+      },
+      child: Material(
+        elevation: 4.0,
+        child: Container(
+          padding: EdgeInsets.all(10.0),
+          width: MediaQuery.of(context).size.width,
+          decoration: BoxDecoration(
+              color: Colors.white, borderRadius: BorderRadius.circular(10)),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              profilePicUrl == ""
+                  ? CircularProgressIndicator()
+                  : ClipRRect(
+                      borderRadius: BorderRadius.circular(60),
+                      child: Image.network(
+                        profilePicUrl,
+                        height: 70.0,
+                        width: 70.0,
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+              SizedBox(
+                width: 10.0,
+              ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  SizedBox(
+                    height: 10.0,
+                  ),
+                  Text(
+                    name,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                        color: Colors.black,
+                        fontSize: 20.0,
+                        fontWeight: FontWeight.w500),
+                  ),
+                  Text(
+                    widget.lastMessage,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                        color: const Color.fromARGB(152, 0, 0, 0),
+                        fontSize: 16.0,
+                        fontWeight: FontWeight.w500),
+                  ),
+                ],
+              ),
+              Spacer(),
+              Text(
+                widget.time,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                    color: Colors.black,
+                    fontSize: 12.0,
+                    fontWeight: FontWeight.w500),
+              ),
+            ],
           ),
         ),
       ),

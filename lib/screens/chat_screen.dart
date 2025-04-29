@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_sound/public/flutter_sound_recorder.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -32,6 +33,7 @@ class _ChatScreenState extends State<ChatScreen> {
   TextEditingController messageController = new TextEditingController();
   bool _isRecording = false;
   File? selectedImage;
+  final ImagePicker _picker = ImagePicker();
   FlutterSoundRecorder _recorder = FlutterSoundRecorder();
 
   Future<void> _initialize() async {
@@ -106,8 +108,9 @@ class _ChatScreenState extends State<ChatScreen> {
       Map<String, dynamic> messageInfoMap = {
         "Data": "Audio",
         "message": downloadURL,
-        "sendBy": formattedDate,
-        "ts": FieldValue.serverTimestamp(),
+        "sendBy": myUsername,
+        "ts": formattedDate,
+        "time": FieldValue.serverTimestamp(),
         "imgUrl": myPicture
       };
       messageId = randomAlphaNumeric(10);
@@ -128,20 +131,21 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
-  Future<void> _uploadImage()async {
+  Future<void> _uploadImage() async {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         backgroundColor: Colors.redAccent,
         content: Text(
           "Your Image being send, kindly wait....",
           style: TextStyle(fontSize: 20.0),
         )));
+
     try {
       String addId = randomAlphaNumeric(10);
 
       Reference firebaseStorageRef =
           FirebaseStorage.instance.ref().child("blogImage").child(addId);
 
-      Final UploadTask task = firebaseStorageRef.putFile(selectedImage!);
+      final UploadTask task = firebaseStorageRef.putFile(selectedImage!);
       var downloadurl1 = await (await task).ref.getDownloadURL();
       DateTime now = DateTime.now();
       String formattedDate = DateFormat('h:mma').format(now);
@@ -149,8 +153,9 @@ class _ChatScreenState extends State<ChatScreen> {
       Map<String, dynamic> messageInfoMap = {
         "Data": "Image",
         "message": downloadurl1,
-        "sendBy": formattedDate,
-        "ts": FieldValue.serverTimestamp(),
+        "sendBy": myUsername,
+        "ts": formattedDate,
+        "time": FieldValue.serverTimestamp(),
         "imgUrl": myPicture
       };
 
@@ -177,7 +182,14 @@ class _ChatScreenState extends State<ChatScreen> {
     setState(() {});
   }
 
-  Widget chatMessageTile(String msg, bool sendByMe) {
+  Future getImage() async {
+    var image = await _picker.pickImage(source: ImageSource.gallery);
+    selectedImage = File(image!.path);
+    _uploadImage();
+    setState(() {});
+  }
+
+  Widget chatMessageTile(String msg, bool sendByMe, String Data) {
     return Row(
       mainAxisAlignment:
           sendByMe ? MainAxisAlignment.end : MainAxisAlignment.start,
@@ -195,13 +207,39 @@ class _ChatScreenState extends State<ChatScreen> {
                   bottomLeft:
                       sendByMe ? Radius.circular(24) : Radius.circular(0)),
               color: sendByMe ? Colors.black45 : Colors.blue),
-          child: Text(
-            msg,
-            style: TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-                fontSize: 14.0),
-          ),
+          child: Data == 'Image'
+              ? Image.network(
+                  msg,
+                  height: 200,
+                  width: 200,
+                  fit: BoxFit.cover,
+                )
+              : Data == "Audio"
+                  ? Row(
+                      children: [
+                        Icon(
+                          Icons.mic,
+                          color: Colors.white,
+                        ),
+                        SizedBox(
+                          width: 10.0,
+                        ),
+                        Text(
+                          "Audio",
+                          style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 18.0,
+                              fontWeight: FontWeight.bold),
+                        ),
+                      ],
+                    )
+                  : Text(
+                      msg,
+                      style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14.0),
+                    ),
         ))
       ],
     );
@@ -218,7 +256,7 @@ class _ChatScreenState extends State<ChatScreen> {
                   itemBuilder: (context, index) {
                     DocumentSnapshot ds = snapshot.data.docs[index];
                     return chatMessageTile(
-                        ds["message"], myUsername == ds["sendBy"]);
+                        ds["message"], myUsername == ds["sendBy"], ds["Data"]);
                   })
               : Container();
         });
@@ -241,7 +279,7 @@ class _ChatScreenState extends State<ChatScreen> {
       String formattedDate = DateFormat('h:mma').format(now);
 
       Map<String, dynamic> messageInfoMap = {
-        "Data" : "Message",
+        "Data": "Message",
         "message": msg,
         "sendBy": myUsername,
         "ts": formattedDate,
@@ -392,35 +430,60 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
-  Future openRecording() => showDialog(context: context, builder: (context) => AlertDialog(
-    content: SingleChildScrollView(
-      child: Container(
-        child: Column(
-          children: [
-            Text("Add Voice Note", style: TextStyle(color: Colors.black, fontSize: 20.0, fontWeight: FontWeight.bold, fontFamily: 'Poppins'),),
-            SizedBox(
-              height: 20,
+  Future openRecording() => showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+            content: SingleChildScrollView(
+              child: Container(
+                child: Column(
+                  children: [
+                    Text(
+                      "Add Voice Note",
+                      style: TextStyle(
+                          color: Colors.black,
+                          fontSize: 20.0,
+                          fontWeight: FontWeight.bold,
+                          fontFamily: 'Poppins'),
+                    ),
+                    SizedBox(
+                      height: 20,
+                    ),
+                    ElevatedButton(
+                        onPressed: () {
+                          if (_isRecording) {
+                            _stopRecording();
+                          } else {
+                            _startRecording();
+                          }
+                        },
+                        child: Text(
+                          _isRecording ? "Stop Recording" : "Start Recording",
+                          style: TextStyle(
+                              color: Colors.black,
+                              fontSize: 20.0,
+                              fontWeight: FontWeight.bold),
+                        )),
+                    SizedBox(
+                      height: 20,
+                    ),
+                    ElevatedButton(
+                      onPressed: () {
+                        Navigator.pop(context);
+                        if (_isRecording) {
+                          null;
+                        } else {
+                          _uploadFile();
+                        }
+                      },
+                      child: Text("Upload Audio",
+                          style: TextStyle(
+                              color: Colors.black,
+                              fontSize: 20.0,
+                              fontWeight: FontWeight.bold)),
+                    ),
+                  ],
+                ),
+              ),
             ),
-            ElevatedButton(onPressed: (){
-              if(_isRecording) {_stopRecording();}
-              else {_startRecording();}
-            }
-            , child: Text(
-            _isRecording? "Stop Recording" : "Start Recording",
-            style: TextStyle(color: Colors.black, fontSize: 20.0, fontWeight: FontWeight.bold),
-            )), 
-            SizedBox(
-              height: 20,
-            ),
-            ElevatedButton(onPressed: (){
-              Navigator.pop(context);
-              if(_isRecording) {null;}
-              else {_uploadFile();}
-            }, child: 
-            Text("Upload Audio", style: TextStyle(color: Colors.black, fontSize: 20.0, fontWeight: FontWeight.bold)),),
-          ],
-        ),
-      ),
-    ),
-  ));
+          ));
 }
